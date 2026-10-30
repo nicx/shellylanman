@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+
+# Build output
+/dist/
+
+# Fetched by Scripts/build-server.sh
+/.toolchain/
+/.upstream/
+/Vendored/
