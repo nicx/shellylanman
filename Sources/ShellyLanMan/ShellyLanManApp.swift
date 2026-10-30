@@ -8,6 +8,7 @@ final class AppEnvironment: ObservableObject {
     let settings: AppSettings
     let log: LogStore
     let server: ServerController
+    let watcher: FirmwareWatcher
     let loginItem: LoginItemManager
     let notifier: Notifier
 
@@ -18,7 +19,9 @@ final class AppEnvironment: ObservableObject {
         self.settings = settings
         self.log = log
         self.notifier = notifier
-        self.server = ServerController(settings: settings, log: log, notifier: notifier)
+        let server = ServerController(settings: settings, log: log, notifier: notifier)
+        self.server = server
+        self.watcher = FirmwareWatcher(settings: settings, server: server, log: log, notifier: notifier)
         self.loginItem = LoginItemManager()
     }
 
@@ -27,6 +30,7 @@ final class AppEnvironment: ObservableObject {
         // Unlike the sister apps, no automatic login-item registration on first
         // launch: ShellyLanMan is a tool to try out, not core infrastructure.
         if settings.startOnLaunch { server.start() }
+        watcher.start()
     }
 
     func shutdown() {
@@ -60,6 +64,7 @@ struct ShellyLanManApp: App {
                 .environmentObject(env)
                 .environmentObject(env.settings)
                 .environmentObject(env.server)
+                .environmentObject(env.watcher)
                 .environmentObject(env.loginItem)
                 .environmentObject(env.log)
         } label: {
@@ -70,6 +75,7 @@ struct ShellyLanManApp: App {
             SettingsView()
                 .environmentObject(env.settings)
                 .environmentObject(env.server)
+                .environmentObject(env.watcher)
                 .environmentObject(env.loginItem)
         }
 

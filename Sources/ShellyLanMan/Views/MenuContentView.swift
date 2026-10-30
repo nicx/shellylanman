@@ -5,6 +5,7 @@ import AppKit
 struct MenuContentView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var server: ServerController
+    @EnvironmentObject var watcher: FirmwareWatcher
     @EnvironmentObject var loginItem: LoginItemManager
     @EnvironmentObject var log: LogStore
     @Environment(\.openWindow) private var openWindow
@@ -13,12 +14,16 @@ struct MenuContentView: View {
     var body: some View {
         Text(statusLine)
         Text("ShellyLanMan \(ServerPaths.serverVersion ?? "–")").font(.caption)
+        Text(watcher.summary).font(.caption)
 
         Divider()
 
         Button("Weboberfläche öffnen") { NSWorkspace.shared.open(settings.webURL) }
             .keyboardShortcut("o")
             .disabled(server.status != .running)
+
+        Button("Jetzt nach Firmware-Updates suchen") { Task { await watcher.check() } }
+            .disabled(server.status != .running || watcher.isChecking)
 
         Divider()
 
