@@ -74,6 +74,14 @@ final class ServerController: ObservableObject {
         do {
             try ServerPaths.validate()
             try FileManager.default.createDirectory(at: ServerPaths.dataDirectory, withIntermediateDirectories: true)
+            // The server starts its mDNS browser once and never retries: without a usable
+            // interface (login before the VLAN is up) discovery would stay off.
+            await waitForNetwork(timeout: 90)
+            if intentionalStop {
+                status = .stopped
+                log.appendSystem("Start abgebrochen (während des Wartens auf das Netzwerk gestoppt)")
+                return
+            }
             // Clear an orphaned instance still holding the port right before
             // launching, so the takeover window is as short as possible.
             await reclaimOrphan()
@@ -83,6 +91,20 @@ final class ServerController: ObservableObject {
             lastError = error.localizedDescription
             log.appendSystem("Start fehlgeschlagen: \(error.localizedDescription)")
         }
+    }
+
+    private func waitForNetwork(timeout: TimeInterval) async {
+        guard !NetworkProbe.hasUsableInterface() else { return }
+        log.appendSystem("Warte auf ein nutzbares Netzwerk (mDNS braucht eine aktive Schnittstelle)…")
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline && !intentionalStop {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if NetworkProbe.hasUsableInterface() {
+                log.appendSystem("Netzwerk ist bereit")
+                return
+            }
+        }
+        if !intentionalStop { log.appendSystem("Kein Netzwerk nach \(Int(timeout)) s — starte trotzdem") }
     }
 
     /// Stop the server intentionally (no keepalive restart).
