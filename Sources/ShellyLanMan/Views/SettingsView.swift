@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var server: ServerController
     @EnvironmentObject var watcher: FirmwareWatcher
+    @EnvironmentObject var updater: ServerUpdater
     @EnvironmentObject var loginItem: LoginItemManager
 
     @State private var token = TokenStore.load() ?? ""
@@ -66,6 +67,16 @@ struct SettingsView: View {
 
             Section("ShellyLanMan") {
                 LabeledContent("Version", value: ServerPaths.serverVersion ?? "–")
+                LabeledContent("Neueste Version", value: updater.isChecking ? "prüfe…" : (updater.latest ?? "–"))
+                HStack {
+                    Button("Nach Update suchen") { Task { await updater.checkLatest() } }
+                        .disabled(updater.isChecking || updater.isWorking)
+                    Button(updater.isWorking ? "Aktualisiere…" : "Aktualisieren") { Task { await updater.install() } }
+                        .disabled(updater.isWorking || !updater.isUpdateAvailable)
+                    Spacer()
+                }
+                if let status = updater.status { Text(status).font(.caption).foregroundStyle(.secondary) }
+                if let err = updater.lastError { Text(err).font(.caption).foregroundStyle(.red) }
                 LabeledContent("Daten") {
                     Button(ServerPaths.dataDirectory.path) {
                         NSWorkspace.shared.open(ServerPaths.dataDirectory)

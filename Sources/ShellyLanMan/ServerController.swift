@@ -187,7 +187,7 @@ final class ServerController: ObservableObject {
         guard pid > 0, pid != process?.processIdentifier else { return nil }
         guard kill(pid, 0) == 0 else { return nil }
         guard let command = processCommand(pid),
-              command.hasPrefix(ServerPaths.binaryURL.path) else {
+              ServerPaths.isOurBinary(command: command) else {
             log.appendSystem("Port \(settings.port) ist belegt, aber PID \(pid) ist nicht unser ShellyLanMan — kein Eingriff")
             return nil
         }

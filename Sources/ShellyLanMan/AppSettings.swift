@@ -59,6 +59,20 @@ final class AppSettings: ObservableObject {
         mailTo = defaults.string(forKey: Keys.mailTo) ?? ""
     }
 
+    /// Compare dotted version strings. True if `candidate` is strictly newer.
+    nonisolated static func isNewer(_ candidate: String, than current: String) -> Bool {
+        func parts(_ s: String) -> [Int] {
+            s.split(separator: ".").map { Int($0.prefix(while: { $0.isNumber })) ?? 0 }
+        }
+        let a = parts(candidate), b = parts(current)
+        for i in 0..<max(a.count, b.count) {
+            let x = i < a.count ? a[i] : 0
+            let y = i < b.count ? b[i] : 0
+            if x != y { return x > y }
+        }
+        return false
+    }
+
     var webURL: URL { URL(string: "http://localhost:\(port)/")! }
 
     private enum Keys {

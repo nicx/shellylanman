@@ -13,19 +13,22 @@
 #   Vendored/shellylanman.version  upstream tag + commit (read by make-app.sh)
 #
 # Env overrides:
-#   UPSTREAM_REF   tag/branch/commit to build   (default: v1.0.0)
+#   UPSTREAM_REF   tag/branch/commit to build   (default: v1.1.0)
+#   BUILD_ROOT     working folder               (default: the repo)
 #   GO_VERSION     Go toolchain                 (default: 1.27.3)
 #   NODE_VERSION   Node.js toolchain            (default: 26.13.0)
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# BUILD_ROOT: where toolchain, sources and the result live. Defaults to the repo; the
+# app's "update server" action sets it to a folder under ~/Library/Caches.
+ROOT="${BUILD_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 TOOLCHAIN="$ROOT/.toolchain"
 UPSTREAM="$ROOT/.upstream"
 VENDORED="$ROOT/Vendored"
 
 UPSTREAM_URL="https://github.com/wimmme/shellylanman.git"
-UPSTREAM_REF="${UPSTREAM_REF:-v1.0.0}"
+UPSTREAM_REF="${UPSTREAM_REF:-v1.1.0}"
 GO_VERSION="${GO_VERSION:-1.27.3}"
 NODE_VERSION="${NODE_VERSION:-26.13.0}"
 

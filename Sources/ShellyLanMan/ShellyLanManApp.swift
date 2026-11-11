@@ -9,6 +9,7 @@ final class AppEnvironment: ObservableObject {
     let log: LogStore
     let server: ServerController
     let watcher: FirmwareWatcher
+    let updater: ServerUpdater
     let discoveryWatchdog: DiscoveryWatchdog
     let loginItem: LoginItemManager
     let notifier: Notifier
@@ -23,6 +24,7 @@ final class AppEnvironment: ObservableObject {
         let server = ServerController(settings: settings, log: log, notifier: notifier)
         self.server = server
         self.watcher = FirmwareWatcher(settings: settings, server: server, log: log, notifier: notifier)
+        self.updater = ServerUpdater(server: server, log: log, notifier: notifier)
         self.discoveryWatchdog = DiscoveryWatchdog(settings: settings, server: server, log: log)
         self.loginItem = LoginItemManager()
     }
@@ -33,6 +35,7 @@ final class AppEnvironment: ObservableObject {
         // launch: ShellyLanMan is a tool to try out, not core infrastructure.
         if settings.startOnLaunch { server.start() }
         watcher.start()
+        updater.start()
         discoveryWatchdog.start()
     }
 
@@ -68,6 +71,7 @@ struct ShellyLanManApp: App {
                 .environmentObject(env.settings)
                 .environmentObject(env.server)
                 .environmentObject(env.watcher)
+                .environmentObject(env.updater)
                 .environmentObject(env.loginItem)
                 .environmentObject(env.log)
         } label: {
@@ -79,6 +83,7 @@ struct ShellyLanManApp: App {
                 .environmentObject(env.settings)
                 .environmentObject(env.server)
                 .environmentObject(env.watcher)
+                .environmentObject(env.updater)
                 .environmentObject(env.loginItem)
         }
 

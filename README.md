@@ -11,6 +11,7 @@ Stack: Swift · SwiftUI `MenuBarExtra` · Go-Binary (Upstream, Weboberfläche ei
 - „Weboberfläche öffnen“ → `http://localhost:3082/`.
 - Protokoll als Live-Fenster und als Datei, optional Start beim Anmelden.
 - **Firmware-Hinweise per Mail:** die App fragt alle 12 h (einstellbar) `GET /api/v1/firmware/index` des lokalen Servers ab. Den Index holt der Server selbst, die Shellies brauchen dafür kein Internet. Neue Updates werden einmalig per Mail an ein lokales Mail-Relay (Klartext-SMTP) gemeldet, dazu eine macOS-Mitteilung. Mit UI-Passwort braucht die App einen API-Token mit Stufe „read“ (liegt im Schlüsselbund).
+- **Server aktualisieren per Menü:** die App prüft täglich die neueste Upstream-Version (GitHub-Release) und baut sie auf Knopfdruck selbst („ShellyLanMan aktualisieren“): Go und Node werden beim ersten Mal geprüft nach `~/Library/Caches/ShellyLanManBuild` geladen, das Ergebnis liegt in `~/Library/Application Support/ShellyLanMan-Server/<Version>/` und hat Vorrang vor dem eingebauten Server. Braucht `git` (Xcode-Kommandozeilenwerkzeuge). Die App selbst (Menü, Wächter) aktualisiert man weiter per Neubau.
 - Übernimmt eine verwaiste eigene Instanz, die nach einem App-Absturz noch den Port belegt.
 
 ## Bauen
@@ -21,7 +22,7 @@ CODESIGN_IDENTITY="nicx Selfsign" ./Scripts/make-app.sh    # → dist/ShellyLanM
 ```
 
 `build-server.sh` lädt Go und Node als offizielle Tarballs nach `.toolchain/` (kein
-Homebrew) und baut den Upstream-Stand `UPSTREAM_REF` (Standard `v1.0.0`).
+Homebrew) und baut den Upstream-Stand `UPSTREAM_REF` (Standard `v1.1.0`).
 Update = `UPSTREAM_REF=<Tag> ./Scripts/build-server.sh`, danach neu bauen.
 
 ## Speicherort

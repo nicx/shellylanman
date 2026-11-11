@@ -61,6 +61,8 @@ cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :ShellyLanManServerVersion string $SERVER_VERSION ($SERVER_COMMIT)" "$APP/Contents/Info.plist"
 cp "$BIN" "$APP/Contents/MacOS/ShellyLanMan"
 cp "$VENDORED/shellylanman" "$APP/Contents/Helpers/shellylanman"
+# The app rebuilds the server itself for "update server" (see ServerUpdater.swift).
+cp "$ROOT/Scripts/build-server.sh" "$APP/Contents/Resources/build-server.sh"
 [[ -f "$ROOT/Resources/AppIcon.icns" ]] && cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"
 
 echo "==> Code signing (identity: $IDENTITY)"

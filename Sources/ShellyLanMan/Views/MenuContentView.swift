@@ -6,6 +6,7 @@ struct MenuContentView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var server: ServerController
     @EnvironmentObject var watcher: FirmwareWatcher
+    @EnvironmentObject var updater: ServerUpdater
     @EnvironmentObject var loginItem: LoginItemManager
     @EnvironmentObject var log: LogStore
     @Environment(\.openWindow) private var openWindow
@@ -15,6 +16,11 @@ struct MenuContentView: View {
         Text(statusLine)
         Text("ShellyLanMan \(ServerPaths.serverVersion ?? "–")").font(.caption)
         Text(watcher.summary).font(.caption)
+        if let status = updater.status {
+            Text(status).font(.caption)
+        } else if updater.isUpdateAvailable, let latest = updater.latest {
+            Text("ShellyLanMan \(latest) verfügbar").font(.caption)
+        }
 
         Divider()
 
@@ -24,6 +30,12 @@ struct MenuContentView: View {
 
         Button("Jetzt nach Firmware-Updates suchen") { Task { await watcher.check() } }
             .disabled(server.status != .running || watcher.isChecking)
+
+        Button(updater.isWorking ? "Aktualisiere…" : "ShellyLanMan aktualisieren"
+               + (updater.isUpdateAvailable ? " auf \(updater.latest ?? "")" : "")) {
+            Task { await updater.install() }
+        }
+        .disabled(updater.isWorking || !updater.isUpdateAvailable)
 
         Divider()
 

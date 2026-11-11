@@ -12,3 +12,4 @@ bei Problemen zuerst Schwester-Apps greppen). Autor: nicx. Keine IPs/Hostnamen/P
 - Server-Konfiguration nur per Env: `SHELLYLANMAN_DATA`, `SHELLYLANMAN_PORT` (3082). Lauscht auf `[::]`.
 - Läuft produktiv aus `dist/` — nicht aus der Sandbox starten (Port 3082, Geister-Instanz).
 - Kein Login-Item-Auto-Opt-in beim ersten Start (anders als Piper).
+- "Server aktualisieren" (`ServerUpdater.swift`): baut per eingebettetem `build-server.sh` (`BUILD_ROOT`) in ~/Library/Caches/ShellyLanManBuild, installiert nach ~/Library/Application Support/ShellyLanMan-Server/<v>/ (`current`-Datei), `ServerPaths.binaryURL` nimmt den neueren von beiden. Skript aus dem Bundle mit minimalem PATH getestet; der Knopf in der laufenden App nicht (nicht aus der Sandbox startbar).
