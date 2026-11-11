@@ -1,11 +1,15 @@
 import Foundation
 
-/// Asks the local ShellyLanMan server (`GET /api/v1/firmware/index`) which devices
-/// have newer stable firmware in Shelly's index, and mails a summary when an
-/// update shows up that was not announced before.
+/// Asks the local ShellyLanMan server (`GET /api/v1/firmware`) which devices have
+/// newer stable firmware, and mails a summary when an update shows up that was not
+/// announced before.
 ///
-/// The index lookup is done by the server on this Mac, so the Shellies themselves
-/// can stay cut off from the internet and the notice still arrives.
+/// That endpoint has each device ask Shelly itself (`Shelly.CheckForUpdate`), the
+/// same source Home Assistant uses. In the server's "local" firmware mode it uses
+/// Shelly's public index instead; on 2026-11-11 a long-running server in that mode
+/// kept answering 2.1.1 from its index data while a freshly started one saw 2.2.0
+/// from the same index, so a stale index cache hid every update (cause not found).
+///
 @MainActor
 final class FirmwareWatcher: ObservableObject {
     struct Pending: Equatable {
@@ -78,21 +82,21 @@ final class FirmwareWatcher: ObservableObject {
         defer { isChecking = false }
         do {
             async let devices = fetch([DeviceRow].self, "/api/v1/devices")
-            async let index = fetch([IndexRow].self, "/api/v1/firmware/index")
+            async let index = fetch([FirmwareRow].self, "/api/v1/firmware")
             let (deviceRows, indexRows) = try await (devices, index)
             let byID = Dictionary(deviceRows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-            let found = indexRows.filter { $0.newer && !($0.latest ?? "").isEmpty }.map { row -> Pending in
+            let found = indexRows.filter { $0.valid && !($0.stable ?? "").isEmpty && $0.stable != $0.current }.map { row -> Pending in
                 let dev = byID[row.id]
                 let name = [dev?.name, dev?.hostname].compactMap { $0 }.first { !$0.isEmpty } ?? row.id
-                return Pending(id: row.id, name: name, model: dev?.typeName ?? row.key ?? "",
-                               current: row.current ?? "?", latest: row.latest ?? "?")
+                return Pending(id: row.id, name: name, model: dev?.typeName ?? "",
+                               current: row.current ?? "?", latest: row.stable ?? "?")
             }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            let failed = indexRows.filter { $0.error != nil }.count
+            let failed = indexRows.filter { $0.known && !$0.valid }.count
             lastError = nil
             lastCheck = Date()
             pending = found
             log.appendSystem("Firmware geprüft: \(indexRows.count) Geräte, \(found.count) mit Update"
-                + (failed > 0 ? ", \(failed) ohne Indexdaten" : ""))
+                + (failed > 0 ? ", \(failed) ohne Antwort" : ""))
             await announce(found)
         } catch {
             lastError = error.localizedDescription
@@ -160,18 +164,17 @@ final class FirmwareWatcher: ObservableObject {
         let typeName: String?
     }
 
-    private struct IndexRow: Decodable {
+    private struct FirmwareRow: Decodable {
         let id: String
-        let key: String?
+        let known: Bool
+        let valid: Bool
         let current: String?
-        let latest: String?
-        let newer: Bool
-        let error: String?
+        let stable: String?
     }
 
     private func fetch<T: Decodable>(_ type: T.Type, _ path: String) async throws -> T {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(settings.port)\(path)")!)
-        request.timeoutInterval = 60
+        request.timeoutInterval = 150
         if let token = TokenStore.load(), !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
