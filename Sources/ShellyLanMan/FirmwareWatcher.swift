@@ -31,6 +31,9 @@ final class FirmwareWatcher: ObservableObject {
     private let log: LogStore
     private let notifier: Notifier
     private var loop: Task<Void, Never>?
+    /// Set after a check in which Shelly's index answered for (almost) nothing: try again
+    /// sooner than the normal interval.
+    private var retryAt: Date?
 
     init(settings: AppSettings, server: ServerController, log: LogStore, notifier: Notifier) {
         self.settings = settings
@@ -56,6 +59,7 @@ final class FirmwareWatcher: ObservableObject {
     }
 
     private var isDue: Bool {
+        if let retryAt { return Date() >= retryAt }
         guard let lastCheck else { return true }
         return Date().timeIntervalSince(lastCheck) >= Double(max(1, settings.checkIntervalHours)) * 3600
     }
@@ -91,13 +95,23 @@ final class FirmwareWatcher: ObservableObject {
                 return Pending(id: row.id, name: name, model: dev?.typeName ?? "",
                                current: row.current ?? "?", latest: row.latest ?? "?")
             }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            let failed = indexRows.filter { !($0.error ?? "").isEmpty }.count
+            let failedIDs = Set(indexRows.filter { !($0.error ?? "").isEmpty }.map(\.id))
+            let failed = failedIDs.count
+            if !indexRows.isEmpty, failed * 2 > indexRows.count {
+                // Shelly's server answered with errors (408/502 happen): what we know stays,
+                // and the server keeps such errors for a while, so wait a bit before retrying.
+                lastError = "Shellys Index antwortet für \(failed) von \(indexRows.count) Geräten nicht"
+                retryAt = Date().addingTimeInterval(30 * 60)
+                log.appendSystem("Firmware-Prüfung unvollständig: \(lastError!), neuer Versuch in 30 Min.")
+                return
+            }
+            retryAt = nil
             lastError = nil
             lastCheck = Date()
             pending = found
             log.appendSystem("Firmware geprüft: \(indexRows.count) Geräte, \(found.count) mit Update"
                 + (failed > 0 ? ", \(failed) ohne Antwort" : ""))
-            await announce(found)
+            await announce(found, unresolved: failedIDs)
         } catch {
             lastError = error.localizedDescription
             log.appendSystem("Firmware-Prüfung fehlgeschlagen: \(error.localizedDescription)")
@@ -105,9 +119,10 @@ final class FirmwareWatcher: ObservableObject {
     }
 
     /// Mail (and notification) only when something is new; the mail lists everything pending.
-    private func announce(_ found: [Pending]) async {
+    private func announce(_ found: [Pending], unresolved: Set<String>) async {
         let known = settings.notifiedUpdates
-        let current = Set(found.map(\.key))
+        // Devices Shelly did not answer for keep their "announced" mark: no re-mail as NEU later.
+        let current = Set(found.map(\.key)).union(known.filter { key in unresolved.contains { key.hasPrefix($0 + "@") } })
         let fresh = found.filter { !known.contains($0.key) }
         guard !fresh.isEmpty else {
             settings.notifiedUpdates = current // forget updates that were installed meanwhile
