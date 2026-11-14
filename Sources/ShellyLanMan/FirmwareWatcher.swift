@@ -4,9 +4,9 @@ import Foundation
 /// newer stable firmware, and mails a summary when an update shows up that was not
 /// announced before.
 ///
-/// That endpoint has each device ask Shelly itself (`Shelly.CheckForUpdate`), the
-/// same source Home Assistant uses. In the server's "local" firmware mode it uses
-/// Shelly's public index instead; on 2026-11-11 a long-running server in that mode
+/// It uses `GET /api/v1/firmware/index` (Shelly's public index vs. the version each device
+/// reported). `/api/v1/firmware` would have every device run `Shelly.CheckForUpdate` first,
+/// which takes minutes when the Shellies have no internet. On 2026-11-11 a long-running server in that mode
 /// kept answering 2.1.1 from its index data while a freshly started one saw 2.2.0
 /// from the same index, so a stale index cache hid every update (cause not found).
 ///
@@ -82,16 +82,16 @@ final class FirmwareWatcher: ObservableObject {
         defer { isChecking = false }
         do {
             async let devices = fetch([DeviceRow].self, "/api/v1/devices")
-            async let index = fetch([FirmwareRow].self, "/api/v1/firmware")
+            async let index = fetch([IndexRow].self, "/api/v1/firmware/index")
             let (deviceRows, indexRows) = try await (devices, index)
             let byID = Dictionary(deviceRows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-            let found = indexRows.filter { $0.valid && !($0.stable ?? "").isEmpty && $0.stable != $0.current }.map { row -> Pending in
+            let found = indexRows.filter { $0.newer && !($0.latest ?? "").isEmpty }.map { row -> Pending in
                 let dev = byID[row.id]
                 let name = [dev?.name, dev?.hostname].compactMap { $0 }.first { !$0.isEmpty } ?? row.id
                 return Pending(id: row.id, name: name, model: dev?.typeName ?? "",
-                               current: row.current ?? "?", latest: row.stable ?? "?")
+                               current: row.current ?? "?", latest: row.latest ?? "?")
             }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            let failed = indexRows.filter { $0.known && !$0.valid }.count
+            let failed = indexRows.filter { !($0.error ?? "").isEmpty }.count
             lastError = nil
             lastCheck = Date()
             pending = found
@@ -151,7 +151,8 @@ final class FirmwareWatcher: ObservableObject {
             let mark = freshKeys.contains(p.key) ? "NEU " : "    "
             lines.append("\(mark)\(p.name) (\(p.model)): \(p.current) → \(p.latest)")
         }
-        lines += ["", "Update über ShellyLanMan oder Home Assistant."]
+        lines += ["", "Änderungen (Gen2+): https://shelly-api-docs.shelly.cloud/gen2/changelog/",
+                  "", "Update über ShellyLanMan oder Home Assistant."]
         return lines.joined(separator: "\n")
     }
 
@@ -164,12 +165,14 @@ final class FirmwareWatcher: ObservableObject {
         let typeName: String?
     }
 
-    private struct FirmwareRow: Decodable {
+    /// `GET /api/v1/firmware/index`: cached device data compared with Shelly's index.
+    /// Unlike `/api/v1/firmware` no device is asked, so it answers in seconds.
+    private struct IndexRow: Decodable {
         let id: String
-        let known: Bool
-        let valid: Bool
         let current: String?
-        let stable: String?
+        let latest: String?
+        let newer: Bool
+        let error: String?
     }
 
     private func fetch<T: Decodable>(_ type: T.Type, _ path: String) async throws -> T {
