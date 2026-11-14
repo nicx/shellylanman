@@ -20,10 +20,12 @@ final class ServerUpdater: ObservableObject {
     private let server: ServerController
     private let log: LogStore
     private let notifier: Notifier
+    private let settings: AppSettings
     private var loop: Task<Void, Never>?
     private var announced: String?
 
-    init(server: ServerController, log: LogStore, notifier: Notifier) {
+    init(settings: AppSettings, server: ServerController, log: LogStore, notifier: Notifier) {
+        self.settings = settings
         self.server = server
         self.log = log
         self.notifier = notifier
@@ -66,9 +68,33 @@ final class ServerUpdater: ObservableObject {
                 log.appendSystem("ShellyLanMan \(latest) ist verfügbar (läuft: \(ServerPaths.activeVersion ?? "?"))")
                 notifier.oneShot(title: "ShellyLanMan \(latest) verfügbar",
                                  body: "Im Menü „ShellyLanMan aktualisieren“ wählen.")
+                mailAnnouncement(latest)
             }
         } catch {
             lastError = "Versionsabfrage fehlgeschlagen: \(error.localizedDescription)"
+        }
+    }
+
+    /// Mail the new version once (also when the app was not running at the time of the
+    /// release); a failed send is retried at the next check.
+    private func mailAnnouncement(_ version: String) {
+        guard settings.notifiedServerVersion != version else { return }
+        let cfg = settings.mailConfig
+        guard cfg.isConfigured else { return }
+        let body = "Es gibt eine neue ShellyLanMan-Version: \(version) (läuft: \(ServerPaths.activeVersion ?? "?"))\n\n"
+            + "Änderungen: https://github.com/wimmme/shellylanman/releases/tag/v\(version)\n\n"
+            + "Aktualisieren: Menüleisten-App → „ShellyLanMan aktualisieren“."
+        Task {
+            let error = await Task.detached {
+                MailSender.send(cfg, subject: "ShellyLanMan \(version) verfügbar", body: body)
+            }.value
+            if let error {
+                log.appendSystem("Mail zur neuen ShellyLanMan-Version fehlgeschlagen: \(error)")
+                announced = nil
+            } else {
+                settings.notifiedServerVersion = version
+                log.appendSystem("Mail zu ShellyLanMan \(version) gesendet")
+            }
         }
     }
 

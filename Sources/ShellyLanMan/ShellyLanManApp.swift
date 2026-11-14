@@ -24,7 +24,7 @@ final class AppEnvironment: ObservableObject {
         let server = ServerController(settings: settings, log: log, notifier: notifier)
         self.server = server
         self.watcher = FirmwareWatcher(settings: settings, server: server, log: log, notifier: notifier)
-        self.updater = ServerUpdater(server: server, log: log, notifier: notifier)
+        self.updater = ServerUpdater(settings: settings, server: server, log: log, notifier: notifier)
         self.discoveryWatchdog = DiscoveryWatchdog(settings: settings, server: server, log: log)
         self.loginItem = LoginItemManager()
     }

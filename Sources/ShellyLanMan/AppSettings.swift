@@ -43,6 +43,12 @@ final class AppSettings: ObservableObject {
         set { defaults.set(Array(newValue).sorted(), forKey: Keys.notifiedUpdates) }
     }
 
+    /// Newest ShellyLanMan release already announced by mail.
+    var notifiedServerVersion: String? {
+        get { defaults.string(forKey: "server.notifiedVersion") }
+        set { defaults.set(newValue, forKey: "server.notifiedVersion") }
+    }
+
     var mailConfig: MailConfig {
         MailConfig(host: mailHost, port: UInt16(clamping: mailPort), sender: mailFrom, recipient: mailTo)
     }
